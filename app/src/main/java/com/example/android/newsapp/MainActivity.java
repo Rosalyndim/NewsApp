@@ -43,7 +43,7 @@ public class MainActivity extends AppCompatActivity {
         protected Void doInBackground(Void... arg0) {
             HttpHandler sh = new HttpHandler();
             // TODO: make a request to the URL
-            String url ="https://api.nytimes.com/svc/search/v2/articlesearch.json?begin_date=20180601&sort=newest&api-key=eff7d968bf3a49d5b154568d8e59892a";
+            String url ="https://content.guardianapis.com/search?q=economy&from-date=2018-06-01&order-by=newest&api-key=4f410c1e-1715-4dd5-b225-40b71d895d84";
             String jsonString = "";
             try {
                 jsonString = sh.makeHttpRequest(createUrl(url));
@@ -60,21 +60,21 @@ public class MainActivity extends AppCompatActivity {
 
                     // TODO: Get the JSON Array node
                     JSONObject results = jsonObj.getJSONObject("response");
-                    JSONArray news = results.getJSONArray("docs");
+                    JSONArray news = results.getJSONArray("results");
 
                     // looping through all news
                     for (int i = 0; i < news.length(); i++) {
                         //TODO: get the JSONObject
                         JSONObject c = news.getJSONObject(i);
-                        String  webUrl = c.getString("web_url");
-                        String  snippet = c.getString("snippet");
+                        String  webUrl = c.getString("webUrl");
+                        String  webTitle = c.getString("webTitle");
 
 
                         // tmp hash map for a single news
                         HashMap<String, String> eachNews= new HashMap<>();
 
                         // add each child node to HashMap key => value
-                        eachNews.put("snippet", snippet);
+                        eachNews.put("webTitle", webTitle);
                         eachNews.put("webUrl", webUrl);
 
                         // adding a news to our news list
@@ -122,8 +122,8 @@ public class MainActivity extends AppCompatActivity {
         protected void onPostExecute(Void result) {
             super.onPostExecute(result);
             ListAdapter adapter = new SimpleAdapter(MainActivity.this, newsList,
-                    R.layout.list_item, new String[]{"snippet", "webUrl"},
-                    new int[]{R.id.snippet, R.id.webUrl});
+                    R.layout.list_item, new String[]{"webTitle", "webUrl"},
+                    new int[]{R.id.webTitle, R.id.webUrl});
             list_view.setAdapter(adapter);
         }
     }
