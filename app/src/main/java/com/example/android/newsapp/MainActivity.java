@@ -1,12 +1,22 @@
 package com.example.android.newsapp;
 
+import android.content.Intent;
+import android.app.LoaderManager;
+import android.app.LoaderManager.LoaderCallbacks;
+import android.content.Loader;
+import android.net.Uri;
+import android.os.AsyncTask;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.os.AsyncTask;
+//import android.os.AsyncTask;
 import android.util.Log;
+import android.view.View;
+import android.widget.Adapter;
+import android.widget.AdapterView;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.SimpleAdapter;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import org.json.JSONArray;
@@ -18,113 +28,83 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements LoaderCallbacks<List<News>> {
+
     private String TAG = MainActivity.class.getSimpleName();
+    private static final String GUARDIAN_REQUEST_URL ="https://content.guardianapis.com/search?q=economy&from-date=2018-06-01&order-by=newest&api-key=4f410c1e-1715-4dd5-b225-40b71d895d84";
 
-    private ListView list_view;
+    private static final int NEWS_LOADER_ID = 1;
 
-    ArrayList<HashMap<String, String>> newsList;
+    //Adapter for the list of NEWS
+    private NewsAdapter nAdapter;
+
+    //private ListView list_view;
+
+    //ArrayList<HashMap<String, String>> newsList;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        newsList = new ArrayList<>();
-        list_view = (ListView) findViewById(R.id.list);
+        // Find a reference to the {@link ListView} in the layout
+        ListView newsListView = (ListView) findViewById(R.id.list);
 
-        new GetNews().execute();
+        // Create a new adapter that takes an empty list of news as input
+        nAdapter = new NewsAdapter(this, new ArrayList<News>());
+
+        // Set the adapter on the {@link ListView}
+        // so the list can be populated in the user interface
+        newsListView.setAdapter(nAdapter);
+
+        // Set an item click listener on the ListView, which sends an intent to a web browser
+        // to open a website with more information about the selected news.
+        newsListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int position, long l) {
+                // Find the current news that was clicked on
+                News currentNews = nAdapter.getItem(position);
+
+                //TextView url = (TextView) findViewById(R.id.webUrl);
+                //String urlString = url.getText().toString();
+                String urlString = currentNews.getUrl();
+                Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(urlString));
+                startActivity(browserIntent);
+            }
+        });
+
+        // Get a reference to the LoaderManager, in order to interact with loaders.
+        LoaderManager loaderManager = getLoaderManager();
+        // Initialize the loader. Pass in the int ID constant defined above and pass in null for
+        // the bundle. Pass in this activity for the LoaderCallbacks parameter (which is valid
+        // because this activity implements the LoaderCallbacks interface).
+        loaderManager.initLoader(NEWS_LOADER_ID, null, this);
+
     }
 
-    private class GetNews extends AsyncTask<Void, Void, Void> {
+    @Override
+    public Loader<List<News>> onCreateLoader(int i, Bundle bundle) {
+        // Create a new loader for the given URL
+        return new NewsLoader(this, GUARDIAN_REQUEST_URL);
+    }
 
-        @Override
-        protected Void doInBackground(Void... arg0) {
-            HttpHandler sh = new HttpHandler();
-            // TODO: make a request to the URL
-            String url ="https://content.guardianapis.com/search?q=economy&from-date=2018-06-01&order-by=newest&api-key=4f410c1e-1715-4dd5-b225-40b71d895d84";
-            String jsonString = "";
-            try {
-                jsonString = sh.makeHttpRequest(createUrl(url));
-            } catch (IOException e) {
-                return null;
-            }
-
-            Log.e(TAG, "Response from url: " + jsonString);
-            if (jsonString != null) {
-                try {
-
-                    //TODO: Create a new JSONObject
-                    JSONObject jsonObj = new JSONObject(jsonString);
-
-                    // TODO: Get the JSON Array node
-                    JSONObject results = jsonObj.getJSONObject("response");
-                    JSONArray news = results.getJSONArray("results");
-
-                    // looping through all news
-                    for (int i = 0; i < news.length(); i++) {
-                        //TODO: get the JSONObject
-                        JSONObject c = news.getJSONObject(i);
-                        String  webUrl = c.getString("webUrl");
-                        String  webTitle = c.getString("webTitle");
-
-
-                        // tmp hash map for a single news
-                        HashMap<String, String> eachNews= new HashMap<>();
-
-                        // add each child node to HashMap key => value
-                        eachNews.put("webTitle", webTitle);
-                        eachNews.put("webUrl", webUrl);
-
-                        // adding a news to our news list
-                        newsList.add(eachNews);
-                    }
-                } catch (final JSONException e) {
-                    Log.e(TAG, "Json parsing error: " + e.getMessage());
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            Toast.makeText(getApplicationContext(),
-                                    "Json parsing error: " + e.getMessage(),
-                                    Toast.LENGTH_LONG).show();
-                        }
-                    });
-
-                }
-
-            } else {
-                Log.e(TAG, "Couldn't get json from server.");
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Toast.makeText(getApplicationContext(),
-                                "Couldn't get json from server.",
-                                Toast.LENGTH_LONG).show();
-                    }
-                });
-            }
-
-            return null;
-        }
-
-        private URL createUrl(String stringUrl) {
-            URL url = null;
-            try {
-                url = new URL(stringUrl);
-            } catch (MalformedURLException exception) {
-                return null;
-            }
-            return url;
-        }
-
-        @Override
-        protected void onPostExecute(Void result) {
-            super.onPostExecute(result);
-            ListAdapter adapter = new SimpleAdapter(MainActivity.this, newsList,
-                    R.layout.list_item, new String[]{"webTitle", "webUrl"},
-                    new int[]{R.id.webTitle, R.id.webUrl});
-            list_view.setAdapter(adapter);
+    @Override
+    public void onLoadFinished(Loader<List<News>> loader, List<News> news) {
+        // Clear the adapter of previous earthquake data
+        nAdapter.clear();
+        // If there is a valid list of {@link Earthquake}s, then add them to the adapter's
+        // data set. This will trigger the ListView to update.
+        if (news != null && !news.isEmpty()) {
+            nAdapter.addAll(news);
         }
     }
+
+    @Override
+    public void onLoaderReset(Loader<List<News>> loader) {
+    //Loader reset, so we can clear out our existing data.
+        nAdapter.clear();
+    }
+
 }
